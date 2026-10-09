@@ -73,7 +73,6 @@ android {
   lint {
     textReport = true
     textOutput = file("stdout")
-    checkAllIssues = false
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
   dependenciesInfo {
