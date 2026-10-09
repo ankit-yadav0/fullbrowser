@@ -1,0 +1,6 @@
+{
+  "name": "Fullscreen Web",
+  "description": "Fullscreen web browser with immersive mode, persistent login sessions, and quick bookmark controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

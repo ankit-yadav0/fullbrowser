@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Fullscreen Web</string>
+    <string name="app_tagline">Ultra Smooth Fullscreen Browser</string>
+    <string name="enter_website_title">Enter any website link</string>
+    <string name="url_placeholder">example.com or search terms</string>
+    <string name="open_fullscreen_button">Open Fullscreen</string>
+    <string name="saved_bookmarks">Saved Bookmarks</string>
+    <string name="empty_bookmarks_title">No bookmarks saved yet</string>
+    <string name="empty_bookmarks_subtitle">Save bookmarks while browsing using the floating menu</string>
+    <string name="error_empty_url">Please enter a website link or search query</string>
+    <string name="clear_text">Clear text</string>
+    <string name="paste_clipboard">Paste from clipboard</string>
+    <string name="delete_bookmark">Delete bookmark</string>
+</resources>

@@ -1,0 +1,47 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fullscreen Web audit page</title>
+<style>body{font:15px sans-serif;margin:12px;background:#fff;color:#111}a,button{display:block;margin:6px 0;padding:8px;font-size:15px}pre{white-space:pre-wrap;background:#eee;padding:6px}h3{margin:14px 0 4px}</style></head><body>
+<h2>Fullscreen Web audit page</h2>
+<p>Results are POSTed to <code>/report</code>: read the SERVER LOG. Optional query: <code>?lan=192.168.1.50</code> (a private host running this server with a self-signed cert on :8443; a TLS error in ITS log means the app connected, silence means it was refused).</p>
+<pre id="out"></pre>
+<h3>Auto tests (run on load)</h3>
+<h3>Tap-to-test links (note what happens; main-frame policy is in docs/DEVICE_TEST_PLAN.md)</h3>
+<a href="intent://x#Intent;scheme=https;package=com.evil.app;S.browser_fallback_url=https%3A%2F%2F__ALT__%2Fpage2;end">intent:// with https fallback</a>
+<a href="intent://x#Intent;scheme=https;package=com.evil.app;end">intent:// without fallback</a>
+<a href="mailto:test@example.com">mailto:</a><a href="tel:+10000000000">tel:</a><a href="sms:+10000000000">sms:</a>
+<a href="data:text/html,<h1>data-nav</h1>">data: URL</a><a href="javascript:document.title='js-link-ran'">javascript: link</a>
+<a href="file:///sdcard/Download/">file:</a><a href="content://com.android.externalstorage.documents/root/primary">content:</a>
+<a href="market://details?id=com.android.chrome">market://</a><a href="http://__ALT__/page2">plain http link</a>
+<a href="/redirect-page-http">server redirect https -> http page</a><a href="/redirect-page-private">server redirect -> https://192.168.1.1/ (no gesture on redirect)</a>
+<a href="https://xn--mnchen-3ya.de/">IDN (punycode) münchen.de</a><a href="https://localhost:8443/">localhost:8443</a><a href="https://192.168.1.1/">192.168.1.1</a>
+<a href="https://[::1]:8443/">[::1]:8443</a><a href="https://[fe80::1]/">[fe80::1]</a><a href="https://__ALT__:8443/">unusual port 8443</a>
+<a href="/popup" target="_blank">target=_blank link (user gesture)</a>
+<h3>Buttons</h3>
+<button onclick="window.open('/popup','_blank')">window.open on tap (allowed once)</button>
+<button onclick="window.open('/popup','_blank');window.open('/page2','_blank')">two window.open on one tap (2nd must be refused)</button>
+<button onclick="setTimeout(()=>{var w=window.open('/popup','_blank');rep('timer-popup',w?'OPENED':'blocked')},500)">window.open from timer (no fresh gesture)</button>
+<button onclick="gum({video:true},'camera')">getUserMedia camera</button><button onclick="gum({audio:true},'mic')">getUserMedia microphone</button>
+<button onclick="navigator.geolocation.getCurrentPosition(p=>rep('geo','GRANTED'),e=>rep('geo','denied code '+e.code))">geolocation</button>
+<iframe src="https://__ALT__/frame" allow="camera;microphone" width="300" height="80"></iframe>
+<button onclick="history.pushState({},'','/spa/step2');rep('pushState',location.href)">history.pushState -> /spa/step2 (then bookmark "add current")</button>
+<button onclick="mark()">write storage markers</button><button onclick="check()">check storage markers (after Clear browsing data)</button>
+<button onclick="regSW()">register Service Worker, then fetch /sw-ping</button>
+<script>
+var out=document.getElementById('out');
+function rep(k,v){var s=k+' = '+v;out.textContent+=s+'\n';try{fetch('/report',{method:'POST',body:JSON.stringify({k:k,v:String(v),t:Date.now()})})}catch(e){}}
+function gum(c,n){navigator.mediaDevices.getUserMedia(c).then(s=>{rep(n,'GRANTED');s.getTracks().forEach(t=>t.stop())},e=>rep(n,'denied '+e.name))}
+rep('typeof RTCPeerConnection',typeof RTCPeerConnection);rep('typeof webkitRTCPeerConnection',typeof webkitRTCPeerConnection);
+rep('hardwareConcurrency',navigator.hardwareConcurrency);rep('deviceMemory',navigator.deviceMemory);
+rep('userAgent',navigator.userAgent);rep('languages',navigator.languages);rep('screen',screen.width+'x'+screen.height+'@'+devicePixelRatio);
+var lan=new URLSearchParams(location.search).get('lan');
+['https://192.168.1.1/','https://127.0.0.1:1/','https://[::1]:1/','https://localhost:1/'].concat(lan?['https://'+lan+':8443/probe']:[]).forEach(function(u){
+  fetch(u,{mode:'no-cors'}).then(r=>rep('probe '+u,'resolved type='+r.type+' (opaque is ambiguous: check server log / FAB)'),e=>rep('probe '+u,'rejected '+e.name))});
+['https://doubleclick.net/pixel','https://www.google-analytics.com/collect'].forEach(function(u){fetch(u,{mode:'no-cors'}).then(r=>rep('tracker '+u,'resolved type='+r.type+' (FAB blocked-counter must increase)'),e=>rep('tracker '+u,'rejected '+e.name))});
+function mark(){document.cookie='audit=1; Secure; Path=/; Max-Age=3600';localStorage.setItem('audit','1');sessionStorage.setItem('audit','1');
+  var r=indexedDB.open('audit',1);r.onupgradeneeded=()=>r.result.createObjectStore('s');r.onsuccess=()=>{r.result.transaction('s','readwrite').objectStore('s').put(1,'k');rep('idb','written')};
+  caches.open('audit').then(c=>c.put('/x',new Response('1'))).then(()=>rep('cacheStorage','written'));rep('markers','cookie+local+session written')}
+function check(){rep('cookie',document.cookie||'(none)');rep('localStorage',localStorage.getItem('audit'));rep('sessionStorage',sessionStorage.getItem('audit'));
+  indexedDB.databases().then(d=>rep('idb dbs',JSON.stringify(d.map(x=>x.name))));caches.keys().then(k=>rep('cacheStorage keys',JSON.stringify(k)));
+  navigator.serviceWorker&&navigator.serviceWorker.getRegistrations().then(r=>rep('SW registrations',r.length))}
+function regSW(){navigator.serviceWorker.register('/sw.js',{scope:'/'}).then(()=>navigator.serviceWorker.ready).then(()=>{rep('SW','ready');return fetch('/sw-ping')}).then(()=>rep('sw-ping','fetched (server log shows it)'),e=>rep('SW','error '+e.name+': '+e.message))}
+</script></body></html>
