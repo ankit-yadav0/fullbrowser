@@ -1,6 +1,7 @@
 package com.example.fullbrowser
 
-import android.app.Activity
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -85,7 +86,7 @@ class BgWebView(c: Context) : WebView(c) {
 }
 
 @Suppress("DEPRECATION")
-class MainActivity : Activity() {
+class MainActivity : ComponentActivity() {
 
     private val eng = AdEngine()
     private val ws = Regex("\\s+")
@@ -159,6 +160,9 @@ class MainActivity : Activity() {
 
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = handleBack()
+        })
         prefs = getSharedPreferences("fb", MODE_PRIVATE)
         eng.fallback = builtin
         eng.off = prefs.getStringSet("off", emptySet()) ?: emptySet()
@@ -585,14 +589,14 @@ class MainActivity : Activity() {
         super.onPause()                          // NOTE: WebView ko pause nahi karte => background play chalta rahe
     }
 
-    override fun onBackPressed() {
+    private fun handleBack() {
         val w = web
         when {
             customView != null -> hideCustom()
             bar.visibility == View.VISIBLE -> hideBar()
             w != null && w.canGoBack() -> w.goBack()
             w != null -> closeSite()
-            else -> super.onBackPressed()
+            else -> finish()
         }
     }
 

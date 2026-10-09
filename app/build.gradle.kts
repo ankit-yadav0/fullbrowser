@@ -70,6 +70,11 @@ android {
     compose = true
     buildConfig = true
   }
+  lint {
+    textReport = true
+    textOutput = file("stdout")
+    checkAllIssues = false
+  }
   testOptions { unitTests { isIncludeAndroidResources = true } }
   dependenciesInfo {
     includeInApk = false
