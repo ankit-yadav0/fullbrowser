@@ -3,33 +3,86 @@ name: Build APK
 on:
   push:
     branches: [main, master]
+  pull_request:
+    branches: [main, master]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
+    name: Build, tests, and lint
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v6
 
-      - uses: actions/setup-java@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
-      - uses: gradle/actions/setup-gradle@v4
+      # Install Android command-line tools before calling sdkmanager.
+      - name: Set up Android SDK command-line tools
+        uses: android-actions/setup-android@v4
         with:
-          gradle-version: "8.7"
+          packages: 'platform-tools'
 
-      - name: Android SDK packages
+      - name: Install the Android SDK platform and build tools used by this project
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" > /dev/null || true
+          sdkmanager --install \
+            "platforms;android-36.1" \
+            "build-tools;36.0.0" \
+            "build-tools;36.1.0" \
+            "platform-tools"
+          sdkmanager --list_installed
 
-      - name: Build debug APK
+      # AGP 9.1.1 requires Gradle 9.3.1. Do not downgrade this to 8.7.
+      - name: Set up Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Verify Java, Gradle, and Android SDK
+        run: |
+          java -version
+          gradle --version
+          test -d "$ANDROID_HOME/platforms/android-36.1"
+
+      # The source archive has no Gradle Wrapper, so use the explicit Gradle installation.
+      - name: Assemble debug APK
+        id: build
         run: gradle assembleDebug --stacktrace
 
-      - uses: actions/upload-artifact@v4
+      - name: Run unit tests
+        run: gradle testDebugUnitTest --stacktrace
+
+      - name: Run Android lint
+        run: gradle lint --stacktrace
+
+      - name: Upload debug APK
+        if: always() && steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v7
         with:
           name: FullBrowser-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload build, test, and lint reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: FullBrowser-build-reports
+          path: |
+            app/build/reports/**
+            app/build/test-results/**
+          if-no-files-found: warn
+          retention-days: 7
